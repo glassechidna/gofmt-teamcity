@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/glassechidna/teamcitymsg"
 	"github.com/sourcegraph/go-diff/diff"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -15,23 +17,25 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	process(bytes.NewReader(data), os.Stdout)
+}
 
-	parsed, err := diff.ParseMultiFileDiff(data)
+func process(reader io.Reader, writer io.Writer) {
+	diffReader := diff.NewMultiFileDiffReader(reader)
+	parsed, err := diffReader.ReadAllFiles()
 	if err != nil {
 		panic(err)
 	}
-
-	out := os.Stdout
 
 	replacements := diffsToReplacements(parsed)
 
 	typeId := "gofmt"
 	typeMsg := teamcitymsg.NewMsgInspectionType(typeId, "gofmt", "`gofmt` style violation", "Code style")
-	fmt.Fprintln(out, typeMsg.String())
+	fmt.Fprintln(writer, typeMsg.String())
 
 	for _, re := range replacements {
 		msg := teamcitymsg.NewMsgInspection(typeId, re.Path, re.Hunk, re.Line)
-		fmt.Fprintln(out, msg.String())
+		fmt.Fprintln(writer, msg.String())
 	}
 }
 
